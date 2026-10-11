@@ -1,6 +1,6 @@
 /** Shared between the browser and the /api/ai/diagram route. */
 
-export type ProviderId = "free" | "openrouter" | "openai" | "anthropic";
+export type ProviderId = "free" | "openrouter" | "openai" | "anthropic" | "gemini";
 
 export interface ProviderInfo {
   id: ProviderId;
@@ -70,9 +70,23 @@ export const PROVIDERS: ProviderInfo[] = [
     keyHint: "sk-ant-…",
     keyUrl: "https://console.anthropic.com/settings/keys",
   },
+  {
+    id: "gemini",
+    label: "Gemini (Google)",
+    defaultModel: "gemini-3.8-flash",
+    needsKey: true,
+    keyHint: "AIza…",
+    keyUrl: "https://aistudio.google.com/apikey",
+  },
 ];
 
 export const getProvider = (id: ProviderId) => PROVIDERS.find((p) => p.id === id) ?? PROVIDERS[0];
+
+/** One entry in a provider's model list. */
+export interface ModelOption {
+  id: string;
+  label?: string;
+}
 
 export interface DiagramRequest {
   provider: ProviderId;

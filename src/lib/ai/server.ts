@@ -7,6 +7,8 @@ import {
   type DiagramNode,
   type DiagramRequest,
   type DiagramSpec,
+  type ModelOption,
+  type ProviderId,
   type NodeColor,
   type NodeShape,
 } from "./config";
@@ -54,7 +56,7 @@ const parseDataUrl = (url: string) => {
 // ---------------------------------------------------------------------------
 // Providers
 
-/** OpenRouter and OpenAI share the chat-completions format. */
+/** OpenRouter, OpenAI and Gemini (via its OpenAI-compatible endpoint) share the chat-completions format. */
 async function chatCompletions(url: string, key: string, model: string, req: DiagramRequest, extraHeaders: Record<string, string> = {}, jsonMode = false) {
   const content: unknown[] = [{ type: "text", text: buildUserText(req) }];
   if (req.image) content.push({ type: "image_url", image_url: { url: req.image } });
@@ -73,8 +75,13 @@ async function chatCompletions(url: string, key: string, model: string, req: Dia
   });
   const body = await res.json().catch(() => null);
   if (!res.ok) {
-    const msg = body?.error?.message ?? `Request failed (${res.status})`;
-    throw new AiError(res.status === 401 ? "That API key was rejected." : msg, res.status === 401 || res.status === 429 ? res.status : 502);
+    // Gemini wraps its error in an array.
+    const msg: string = (Array.isArray(body) ? body[0] : body)?.error?.message ?? `Request failed (${res.status})`;
+    if (res.status === 401 || res.status === 403 || /api key/i.test(msg)) throw new AiError("That API key was rejected.", 401);
+    if (res.status === 404 || /not found|does not exist|not supported/i.test(msg)) {
+      throw new AiError(`Model "${model}" isn't available for this key. Open the model settings and pick one from "Show available models".`, 400);
+    }
+    throw new AiError(msg, res.status === 429 ? 429 : 502);
   }
   const text = body?.choices?.[0]?.message?.content;
   if (typeof text !== "string" || !text.trim()) throw new AiError("The model returned an empty answer. Try again.");
@@ -109,7 +116,7 @@ async function callAnthropic(key: string, model: string, req: DiagramRequest) {
     if (e instanceof AiError) throw e;
     if (e instanceof Anthropic.AuthenticationError) throw new AiError("That Claude API key was rejected.", 401);
     if (e instanceof Anthropic.RateLimitError) throw new AiError("Claude is rate limiting this key. Try again shortly.", 429);
-    if (e instanceof Anthropic.NotFoundError) throw new AiError(`Claude model "${model}" was not found.`, 400);
+    if (e instanceof Anthropic.NotFoundError) throw new AiError(`Model "${model}" isn't available for this key. Open the model settings and pick one from "Show available models".`, 400);
     if (e instanceof Anthropic.APIError) throw new AiError(e.message, 502);
     throw e;
   }
@@ -131,6 +138,10 @@ export async function generateDiagramText(req: DiagramRequest): Promise<{ text: 
     case "openai": {
       const model = req.model!;
       return { text: await chatCompletions("https://api.openai.com/v1/chat/completions", req.apiKey!, model, req, {}, true), model };
+    }
+    case "gemini": {
+      const model = req.model!;
+      return { text: await chatCompletions("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", req.apiKey!, model, req, {}, true), model };
     }
     case "anthropic": {
       const model = req.model!;
@@ -213,4 +224,73 @@ export function parseDiagram(text: string): DiagramSpec {
     nodes,
     edges,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Model lists, so users can pick a model their key can actually use.
+
+/** Model families that can't answer a chat prompt with text. */
+const NOT_CHAT = /embed|tts|audio|realtime|transcribe|whisper|dall-e|imagen|veo|image|moderation|search|aqa|davinci|babbage|computer-use/i;
+
+async function getJson(url: string, headers: Record<string, string>) {
+  const res = await fetch(url, { headers, signal: AbortSignal.timeout(20_000) });
+  const body = await res.json().catch(() => null);
+  if (!res.ok) {
+    const msg: string = (Array.isArray(body) ? body[0] : body)?.error?.message ?? `Request failed (${res.status})`;
+    if (res.status === 401 || res.status === 403 || /api key/i.test(msg)) throw new AiError("That API key was rejected.", 401);
+    throw new AiError(msg, 502);
+  }
+  return body;
+}
+
+export async function listModels(provider: ProviderId, apiKey: string): Promise<ModelOption[]> {
+  switch (provider) {
+    case "free":
+      return [];
+    case "gemini": {
+      const models: ModelOption[] = [];
+      let pageToken = "";
+      // The key goes in a header, never the URL, so it can't end up in logs.
+      for (let page = 0; page < 5; page++) {
+        const body = await getJson(
+          `https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000${pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : ""}`,
+          { "x-goog-api-key": apiKey },
+        );
+        for (const m of body?.models ?? []) {
+          if (!m?.supportedGenerationMethods?.includes("generateContent")) continue;
+          const id = String(m.name).replace(/^models\//, "");
+          if (!NOT_CHAT.test(id)) models.push({ id, label: m.displayName });
+        }
+        pageToken = body?.nextPageToken ?? "";
+        if (!pageToken) break;
+      }
+      return models;
+    }
+    case "openai": {
+      const body = await getJson("https://api.openai.com/v1/models", { Authorization: `Bearer ${apiKey}` });
+      return (body?.data ?? [])
+        .map((m: { id: string; created?: number }) => m)
+        .filter((m: { id: string }) => /^(gpt-|o\d|chatgpt-)/.test(m.id) && !NOT_CHAT.test(m.id))
+        .sort((a: { created?: number }, b: { created?: number }) => (b.created ?? 0) - (a.created ?? 0))
+        .map((m: { id: string }) => ({ id: m.id }));
+    }
+    case "openrouter": {
+      const body = await getJson("https://openrouter.ai/api/v1/models", { Authorization: `Bearer ${apiKey}` });
+      return (body?.data ?? [])
+        .filter((m: { architecture?: { output_modalities?: string[] } }) => m.architecture?.output_modalities?.includes("text") ?? true)
+        .map((m: { id: string; name?: string }) => ({ id: m.id, label: m.name }));
+    }
+    case "anthropic": {
+      const client = new Anthropic({ apiKey, timeout: 20_000, maxRetries: 1 });
+      try {
+        const models: ModelOption[] = [];
+        for await (const m of client.models.list({ limit: 100 })) models.push({ id: m.id, label: m.display_name });
+        return models;
+      } catch (e) {
+        if (e instanceof Anthropic.AuthenticationError || e instanceof Anthropic.PermissionDeniedError) throw new AiError("That API key was rejected.", 401);
+        if (e instanceof Anthropic.APIError) throw new AiError(e.message, 502);
+        throw e;
+      }
+    }
+  }
 }

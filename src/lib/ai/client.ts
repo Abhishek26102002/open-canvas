@@ -4,7 +4,7 @@ import { create } from "zustand";
 import { viewportCenter } from "../actions";
 import { useEditor, fixLabelOrder } from "../store";
 import { buildDiagram } from "./build";
-import { getProvider, type DiagramSpec, type ProviderId } from "./config";
+import { getProvider, type DiagramSpec, type ModelOption, type ProviderId } from "./config";
 
 const STORAGE_KEY = "opencanvas:ai";
 
@@ -119,4 +119,23 @@ export function insertDiagram(spec: DiagramSpec) {
     useEditor.getState().zoomToFit(true);
   }
   return created.length;
+}
+
+/** Models the user's key can use, cached per provider and key for this visit. */
+const modelCache = new Map<string, ModelOption[]>();
+
+export async function fetchModels(provider: ProviderId, apiKey: string) {
+  const cacheKey = `${provider}:${apiKey}`;
+  const cached = modelCache.get(cacheKey);
+  if (cached) return cached;
+  const res = await fetch("/api/ai/models", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ provider, apiKey }),
+  });
+  const body = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(body?.error ?? `Request failed (${res.status})`);
+  const models = body.models as ModelOption[];
+  modelCache.set(cacheKey, models);
+  return models;
 }
