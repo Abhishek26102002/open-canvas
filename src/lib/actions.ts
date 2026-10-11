@@ -15,6 +15,7 @@ interface UIState {
   resetOpen: boolean;
   iconsOpen: boolean;
   shareOpen: boolean;
+  aiOpen: boolean;
   set: (s: Partial<Omit<UIState, "set">>) => void;
 }
 
@@ -24,6 +25,7 @@ export const useUI = create<UIState>()((set) => ({
   resetOpen: false,
   iconsOpen: false,
   shareOpen: false,
+  aiOpen: false,
   set: (s) => set(s),
 }));
 

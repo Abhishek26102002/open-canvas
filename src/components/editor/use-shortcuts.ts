@@ -118,6 +118,7 @@ export function useShortcuts() {
       if (e.shiftKey && key === "v" && selected.length) return s.flip("vertical");
       if (e.key === "?") return useUI.getState().set({ helpOpen: true });
       if (key === "q") return s.setToolLocked(!s.toolLocked);
+      if (key === "g" && !e.altKey && !e.shiftKey) return useUI.getState().set({ aiOpen: true });
       if (e.altKey || e.shiftKey) return;
       const tool = TOOL_KEYS[key];
       if (tool) selectTool(tool);

@@ -7,6 +7,7 @@ import { connectWorkspace } from "@/lib/collab/session";
 import { loadFiles, loadPrefs, loadScene, savePrefs, saveScene } from "@/lib/scene/storage";
 import { useEditor } from "@/lib/store";
 import { PeerAvatars, RemoteCursors, WorkspaceGate } from "./collaborators";
+import { AiDialog } from "./ai-dialog";
 import { IconPicker } from "./icon-picker";
 import { ShareDialog } from "./share-dialog";
 import { Canvas } from "./canvas";
@@ -124,6 +125,7 @@ export function Editor({ workspaceId }: { workspaceId?: string }) {
         <HelpDialog />
         <ResetDialog />
         <IconPicker />
+        <AiDialog />
         <ShareDialog workspaceId={workspaceId} />
         {workspaceId && <WorkspaceGate />}
       </main>

@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, CircleHelp, Download, FolderOpen, Grid3x3, ImageDown, Monitor, Moon, Save, Share2, Shapes, Sun, Trash2 } from "lucide-react";
+import { ChevronDown, CircleHelp, Download, FolderOpen, Grid3x3, ImageDown, Monitor, Moon, Save, Share2, Shapes, Sparkles, Sun, Trash2 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useSyncExternalStore } from "react";
 import {
@@ -107,6 +107,10 @@ export function TopBar({ workspaceId, presence }: { workspaceId?: string; presen
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuLabel>Insert</DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => ui({ aiOpen: true })}>
+                <Sparkles /> Generate with AI…
+                <DropdownMenuShortcut>G</DropdownMenuShortcut>
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => ui({ iconsOpen: true })}>
                 <Shapes /> Icon…
                 <DropdownMenuShortcut>I</DropdownMenuShortcut>
@@ -158,6 +162,17 @@ export function TopBar({ workspaceId, presence }: { workspaceId?: string; presen
         <div className="max-md:hidden">
           <ThemeSwitch />
         </div>
+        <Tooltip>
+          <TooltipTrigger
+            onClick={() => ui({ aiOpen: true })}
+            aria-label="Generate with AI"
+            className="flex h-8 items-center gap-1.5 rounded-lg px-2 text-sm text-foreground/75 transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <Sparkles className="size-4" />
+            <span className="max-lg:hidden">AI</span>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">Generate a diagram with AI (G)</TooltipContent>
+        </Tooltip>
         <Tooltip>
           <TooltipTrigger
             onClick={() => ui({ exportOpen: true })}

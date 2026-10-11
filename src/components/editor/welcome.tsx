@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpRight, FolderOpen, Keyboard, RectangleHorizontal, Type, type LucideIcon } from "lucide-react";
+import { ArrowUpRight, FolderOpen, Keyboard, RectangleHorizontal, Sparkles, Type, type LucideIcon } from "lucide-react";
 import { openFromFile, useUI } from "@/lib/actions";
 import type { ToolType } from "@/lib/scene/types";
 import { useEditor } from "@/lib/store";
@@ -44,6 +44,17 @@ export function Welcome() {
             </button>
           ))}
         </div>
+        <button
+          type="button"
+          onClick={() => useUI.getState().set({ aiOpen: true })}
+          className="-mt-2 flex items-center gap-3 rounded-lg border border-brand/30 bg-brand-soft/50 px-2.5 py-2 text-left text-sm text-brand-soft-foreground transition-colors hover:bg-brand-soft"
+        >
+          <span className="flex size-7 items-center justify-center rounded-md bg-brand text-brand-foreground">
+            <Sparkles className="size-4" />
+          </span>
+          Generate a diagram with AI
+          <kbd className="ml-auto rounded border px-1.5 font-mono text-[11px] text-muted-foreground">G</kbd>
+        </button>
         <div className="flex gap-2 border-t pt-4">
           <button type="button" onClick={() => void openFromFile()} className="flex h-8 flex-1 items-center justify-center gap-1.5 rounded-lg border text-xs transition-colors hover:bg-muted">
             <FolderOpen className="size-3.5" /> Open file

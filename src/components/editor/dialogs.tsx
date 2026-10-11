@@ -152,6 +152,7 @@ const SHORTCUTS: [string, [string, string][]][] = [
       ["Text", "T / 8"],
       ["Insert image", "9"],
       ["Icon library", "I"],
+      ["Generate with AI", "G"],
       ["Eraser", "E / 0"],
       ["Laser pointer", "K"],
       ["Keep tool active", "Q"],
